@@ -22,28 +22,54 @@ import (
 	"os"
 )
 
+const (
+	maxRetries = 12
+)
+
 func printArgError() {
 	fmt.Println("expected " + os.Args[0] + " {server :{port}|read {url}|write {url}}")
 }
 
 func main() {
+	log.SetOutput(os.Stderr)
+
 	if len(os.Args) < 3 {
 		printArgError()
 		return
 	}
 	switch os.Args[1] {
 	case "write":
-		_, err := http.DefaultClient.Post(os.Args[2], "text/plain", os.Stdin)
-		if err != nil {
-			log.Fatal(err)
+		for retryCount := 0; retryCount <= maxRetries; retryCount++ {
+			if retryCount > 0 {
+				log.Printf("sending Request to %s retry count %d\n", os.Args[2], retryCount)
+			}
+			_, err := http.DefaultClient.Post(os.Args[2], "text/plain", os.Stdin)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			return
 		}
-
 	case "read":
-		resp, err := http.DefaultClient.Get(os.Args[2])
-		if err != nil {
-			log.Fatal(err)
+		for retryCount := 0; retryCount <= maxRetries; retryCount++ {
+
+			resp, err := http.DefaultClient.Get(os.Args[2])
+			if err != nil {
+				log.Fatal(err)
+			} else if resp.StatusCode == http.StatusNotFound {
+				return
+			} else if resp.StatusCode == http.StatusConflict {
+				log.Printf(resp.Status)
+				return
+			}
+
+			if _, err := io.Copy(os.Stdout, resp.Body); err != nil {
+				log.Fatal(err)
+			}
+			if retryCount > 0 {
+				log.Printf("sending Request to %s retry count %d\n", os.Args[2], retryCount)
+			}
 		}
-		io.Copy(os.Stdout, resp.Body)
 	case "server":
 		err := startHTTPServer(os.Args[2])
 		if err != nil {
