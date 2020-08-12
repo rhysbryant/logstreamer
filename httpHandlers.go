@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
@@ -123,9 +125,25 @@ func logReadRequest(w http.ResponseWriter, r *http.Request) {
 	channel.ReaderFinalize()
 }
 
+func logDlRequest(w http.ResponseWriter, r *http.Request) {
+	f, err := os.Open(os.Args[0])
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	s, err := os.Stat(os.Args[0])
+	if err != nil {
+		return
+	}
+	w.Header().Add("Content-Length", strconv.Itoa(int(s.Size())))
+	w.Header().Add("Content-Type", "application/binary")
+	io.Copy(w, f)
+}
+
 func startHTTPServer(listener string) error {
 	router := mux.NewRouter().StrictSlash(false)
 	router.HandleFunc("/log/{channel:[\\w]+}", logWriteRequest).Methods("POST")
 	router.HandleFunc("/log/{channel:[\\w]+}", logReadRequest).Methods("GET")
+	router.HandleFunc("/dl/client", logDlRequest).Methods("GET")
 	return http.ListenAndServe(listener, router)
 }
