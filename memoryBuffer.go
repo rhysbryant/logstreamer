@@ -17,6 +17,11 @@ package main
 import (
 	"bytes"
 	"sync"
+	"time"
+)
+
+const (
+	readerShutdownDelay = 5
 )
 
 type MemoryBuffer struct {
@@ -25,6 +30,7 @@ type MemoryBuffer struct {
 	finalized   bool
 	writerCount int
 	readerCount int
+	expiry      *time.Time
 }
 
 func (b *MemoryBuffer) Read(data []byte) (int, error) {
@@ -43,6 +49,7 @@ func (b *MemoryBuffer) Write(data []byte) (int, error) {
 
 func (b *MemoryBuffer) WriterStart() {
 	b.finalized = false
+	b.expiry = nil
 	b.writerCount++
 }
 
@@ -57,8 +64,17 @@ func (b *MemoryBuffer) ReaderFinalize() {
 func (b *MemoryBuffer) WriterFinalize() {
 	b.writerCount--
 	if b.writerCount == 0 {
+		if b.readerCount > 0 {
+			//readers are still connected delay finalization as the writer may be just reconnecting
+			t := time.Now().Add(readerShutdownDelay * time.Second)
+			b.expiry = &t
+		}
 		b.finalized = true
 	}
+}
+
+func (b *MemoryBuffer) Finalized() bool {
+	return b.finalized && b.expiry == nil || (b.expiry != nil && b.expiry.Before(time.Now()))
 }
 
 func (b *MemoryBuffer) Len() int {

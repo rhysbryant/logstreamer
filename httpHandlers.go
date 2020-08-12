@@ -116,7 +116,7 @@ func logReadRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		if len > 0 {
 			flusher.Flush()
-		} else if channel.finalized && channel.Len() == 0 {
+		} else if channel.Finalized() && channel.Len() == 0 {
 			delete(bufferMap, channelName)
 			return
 		}
