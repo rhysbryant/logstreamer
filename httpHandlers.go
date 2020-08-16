@@ -17,9 +17,11 @@ package main
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -43,7 +45,17 @@ func getTag(r *http.Request) string {
 	return r.URL.RawQuery
 }
 
+func getUserAddress(r *http.Request) string {
+
+	return r.RemoteAddr + "," + strings.Join(r.Header["X-Forwarded-For"], ",")
+}
+
+func logChannelEvent(eventName, channelName, userAddress string) {
+	log.Println(eventName, channelName, userAddress)
+}
+
 func logWriteRequest(w http.ResponseWriter, r *http.Request) {
+	userAddress := getUserAddress(r)
 	channelName := getChannelName(r)
 	if channelName == "" {
 		w.WriteHeader(http.StatusNotFound)
@@ -63,6 +75,7 @@ func logWriteRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	channel.WriterStart()
+	logChannelEvent("ChannelWriterConnected", channelName, userAddress)
 	for {
 		_, err := io.CopyN(channel, r.Body, readLength)
 		if err != nil {
@@ -74,18 +87,21 @@ func logWriteRequest(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(channel, "====%s====\n", tag)
 	}
 	channel.WriterFinalize()
+	logChannelEvent("ChannelWriterDisconnected", channelName, userAddress)
 }
 
 func logReadRequest(w http.ResponseWriter, r *http.Request) {
-
+	userAddress := getUserAddress(r)
 	channelName := getChannelName(r)
 	if channelName == "" {
+		logChannelEvent("ChannelNotFound", channelName, userAddress)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 	var channel *MemoryBuffer
 	var ok bool
 	if channel, ok = bufferMap[channelName]; !ok {
+		logChannelEvent("ChannelNotFound", channelName, userAddress)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -95,7 +111,7 @@ func logReadRequest(w http.ResponseWriter, r *http.Request) {
 	if channel.readerCount > 0 {
 		w.WriteHeader(http.StatusConflict)
 		w.Write([]byte(errMsgTooManyReaders))
-
+		logChannelEvent("ChannelTooManyReaders", channelName, userAddress)
 		return
 	}
 
@@ -105,7 +121,7 @@ func logReadRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	channel.ReaderStart()
-
+	logChannelEvent("ChannelReaderConnected", channelName, userAddress)
 	for {
 		len, err := io.CopyN(w, channel, int64(channel.Len()))
 		if err != nil {
@@ -118,11 +134,13 @@ func logReadRequest(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 		} else if channel.Finalized() && channel.Len() == 0 {
 			delete(bufferMap, channelName)
+			logChannelEvent("ChannelFinalized", channelName, userAddress)
 			return
 		}
 	}
 
 	channel.ReaderFinalize()
+	logChannelEvent("ChannelReaderDisconnected", channelName, userAddress)
 }
 
 func logDlRequest(w http.ResponseWriter, r *http.Request) {
