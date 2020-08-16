@@ -26,51 +26,67 @@ const (
 	maxRetries = 12
 )
 
+var (
+	version = "dev-build"
+)
+
 func printArgError() {
 	fmt.Println("expected " + os.Args[0] + " {server :{port}|read {url}|write {url}}")
 }
 
+func startHTTPClientWriter(url string) {
+	for retryCount := 0; retryCount <= maxRetries; retryCount++ {
+		if retryCount > 0 {
+			log.Printf("sending Request to %s retry count %d\n", url, retryCount)
+		}
+		_, err := http.DefaultClient.Post(url, "text/plain", os.Stdin)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		return
+	}
+}
+
+func startHTTPClientReader(url string) {
+	for retryCount := 0; retryCount <= maxRetries; retryCount++ {
+
+		resp, err := http.DefaultClient.Get(url)
+		if err != nil {
+			log.Fatal(err)
+		} else if resp.StatusCode == http.StatusNotFound {
+			return
+		} else if resp.StatusCode == http.StatusConflict {
+			log.Printf(resp.Status)
+			return
+		}
+
+		if _, err := io.Copy(os.Stdout, resp.Body); err != nil {
+			log.Fatal(err)
+		}
+		if retryCount > 0 {
+			log.Printf("sending Request to %s retry count %d\n", url, retryCount)
+		}
+	}
+}
+
 func main() {
-	log.SetOutput(os.Stderr)
 
 	if len(os.Args) < 3 {
+		log.Println("version", version)
 		printArgError()
 		return
 	}
+
 	switch os.Args[1] {
 	case "write":
-		for retryCount := 0; retryCount <= maxRetries; retryCount++ {
-			if retryCount > 0 {
-				log.Printf("sending Request to %s retry count %d\n", os.Args[2], retryCount)
-			}
-			_, err := http.DefaultClient.Post(os.Args[2], "text/plain", os.Stdin)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-			return
-		}
+		log.SetOutput(os.Stderr)
+		startHTTPClientWriter(os.Args[2])
 	case "read":
-		for retryCount := 0; retryCount <= maxRetries; retryCount++ {
-
-			resp, err := http.DefaultClient.Get(os.Args[2])
-			if err != nil {
-				log.Fatal(err)
-			} else if resp.StatusCode == http.StatusNotFound {
-				return
-			} else if resp.StatusCode == http.StatusConflict {
-				log.Printf(resp.Status)
-				return
-			}
-
-			if _, err := io.Copy(os.Stdout, resp.Body); err != nil {
-				log.Fatal(err)
-			}
-			if retryCount > 0 {
-				log.Printf("sending Request to %s retry count %d\n", os.Args[2], retryCount)
-			}
-		}
+		log.SetOutput(os.Stderr)
+		startHTTPClientReader(os.Args[2])
 	case "server":
+		log.Println("Starting server version", version)
 		err := startHTTPServer(os.Args[2])
 		if err != nil {
 			log.Fatal(err)
