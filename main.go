@@ -57,7 +57,7 @@ func startHTTPClientReader(url string) {
 		} else if resp.StatusCode == http.StatusNotFound {
 			return
 		} else if resp.StatusCode == http.StatusConflict {
-			log.Printf(resp.Status)
+			log.Println("got error too many connections, when trying to reconnect")
 			return
 		}
 
