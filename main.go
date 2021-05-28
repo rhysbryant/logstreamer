@@ -81,9 +81,11 @@ func main() {
 	switch os.Args[1] {
 	case "write":
 		log.SetOutput(os.Stderr)
+		log.Println("Starting stream writer client version", version)
 		startHTTPClientWriter(os.Args[2])
 	case "read":
 		log.SetOutput(os.Stderr)
+		log.Println("Starting stream reader client version", version)
 		startHTTPClientReader(os.Args[2])
 	case "server":
 		log.Println("Starting server version", version)
