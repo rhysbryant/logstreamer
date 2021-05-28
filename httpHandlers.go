@@ -130,6 +130,11 @@ func logReadRequest(w http.ResponseWriter, r *http.Request) {
 
 			}
 		}
+		if r.Context().Err() != nil {
+			logChannelEvent("ChannelReaderConnectionError", channelName, userAddress)
+			break
+			//TODO: fix channel finalization
+		}
 		if len > 0 {
 			flusher.Flush()
 		} else if channel.Finalized() && channel.Len() == 0 {
