@@ -37,7 +37,7 @@ func printArgError() {
 func startHTTPClientWriter(url string) {
 	for retryCount := 0; retryCount <= maxRetries; retryCount++ {
 		if retryCount > 0 {
-			log.Printf("TTY Stream Reader, reconnecting to  %s retry count %d\n", url, retryCount)
+			log.Printf("TTY Stream Writer, reconnecting to  %s retry count %d\n", url, retryCount)
 		}
 		//we need to hide io.Closer implementation or Post will close Stdin on error
 		_, err := http.DefaultClient.Post(url, "text/plain", &ReaderOnly{os.Stdin})
