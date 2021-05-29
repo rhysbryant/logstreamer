@@ -39,7 +39,8 @@ func startHTTPClientWriter(url string) {
 		if retryCount > 0 {
 			log.Printf("sending Request to %s retry count %d\n", url, retryCount)
 		}
-		_, err := http.DefaultClient.Post(url, "text/plain", os.Stdin)
+		//we need to hide io.Closer implementation or Post will close Stdin on error
+		_, err := http.DefaultClient.Post(url, "text/plain", &ReaderOnly{os.Stdin})
 		if err != nil {
 			log.Println(err)
 			continue
