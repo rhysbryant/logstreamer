@@ -51,10 +51,12 @@ func startHTTPClientWriter(url string) {
 
 func startHTTPClientReader(url string) {
 	for retryCount := 0; retryCount <= maxRetries; retryCount++ {
-
+		if retryCount > 0 {
+			log.Printf("sending Request to %s retry count %d\n", url, retryCount)
+		}
 		resp, err := http.DefaultClient.Get(url)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		} else if resp.StatusCode == http.StatusNotFound {
 			return
 		} else if resp.StatusCode == http.StatusConflict {
@@ -63,10 +65,7 @@ func startHTTPClientReader(url string) {
 		}
 
 		if _, err := io.Copy(os.Stdout, resp.Body); err != nil {
-			log.Fatal(err)
-		}
-		if retryCount > 0 {
-			log.Printf("sending Request to %s retry count %d\n", url, retryCount)
+			log.Println(err)
 		}
 	}
 }
