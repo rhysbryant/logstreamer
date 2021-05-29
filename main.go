@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	maxRetries = 12
+	maxRetries = 36
 )
 
 var (
