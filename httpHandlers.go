@@ -31,7 +31,9 @@ const (
 	errMsgTooManyReaders = "Only one reader connection supported per channel"
 )
 
-var bufferMap = map[string]*MemoryBuffer{}
+var bufMgr = NewBufferManager(func(channelName string) {
+	logChannelEvent("ChannelRemoved", channelName, "local")
+})
 
 func getChannelName(r *http.Request) string {
 	v := mux.Vars(r)
@@ -62,12 +64,7 @@ func logWriteRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var channel *MemoryBuffer
-	var ok bool
-	if channel, ok = bufferMap[channelName]; !ok {
-		channel = &MemoryBuffer{}
-		bufferMap[channelName] = channel
-	}
+	var channel = bufMgr.CheckoutForWrite(channelName)
 
 	tag := getTag(r)
 	if tag != "" {
@@ -98,9 +95,9 @@ func logReadRequest(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
+	var err error
 	var channel *MemoryBuffer
-	var ok bool
-	if channel, ok = bufferMap[channelName]; !ok {
+	if channel, err = bufMgr.CheckoutForRead(channelName); err != nil {
 		logChannelEvent("ChannelNotFound", channelName, userAddress)
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -138,9 +135,8 @@ func logReadRequest(w http.ResponseWriter, r *http.Request) {
 		if len > 0 {
 			flusher.Flush()
 		} else if channel.Finalized() && channel.Len() == 0 {
-			delete(bufferMap, channelName)
 			logChannelEvent("ChannelFinalized", channelName, userAddress)
-			return
+			break
 		}
 	}
 
