@@ -37,7 +37,7 @@ func printArgError() {
 func startHTTPClientWriter(url string) {
 	for retryCount := 0; retryCount <= maxRetries; retryCount++ {
 		if retryCount > 0 {
-			log.Printf("sending Request to %s retry count %d\n", url, retryCount)
+			log.Printf("TTY Stream Reader, reconnecting to  %s retry count %d\n", url, retryCount)
 		}
 		//we need to hide io.Closer implementation or Post will close Stdin on error
 		_, err := http.DefaultClient.Post(url, "text/plain", &ReaderOnly{os.Stdin})
@@ -52,7 +52,7 @@ func startHTTPClientWriter(url string) {
 func startHTTPClientReader(url string) {
 	for retryCount := 0; retryCount <= maxRetries; retryCount++ {
 		if retryCount > 0 {
-			log.Printf("sending Request to %s retry count %d\n", url, retryCount)
+			log.Printf("TTY Stream Reader, reconnecting to %s retry count %d\n", url, retryCount)
 		}
 		resp, err := http.DefaultClient.Get(url)
 		if err != nil {
@@ -81,11 +81,11 @@ func main() {
 	switch os.Args[1] {
 	case "write":
 		log.SetOutput(os.Stderr)
-		log.Println("Starting stream writer client version", version)
+		log.Println("Starting TTY stream writer client version", version)
 		startHTTPClientWriter(os.Args[2])
 	case "read":
 		log.SetOutput(os.Stderr)
-		log.Println("Starting stream reader client version", version)
+		log.Println("Starting TTY stream reader client version", version)
 		startHTTPClientReader(os.Args[2])
 	case "server":
 		log.Println("Starting server version", version)
