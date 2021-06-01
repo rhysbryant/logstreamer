@@ -55,10 +55,20 @@ func startHTTPClientReader(url string) {
 			log.Printf("TTY Stream Reader, reconnecting to %s retry count %d\n", url, retryCount)
 		}
 		resp, err := http.DefaultClient.Get(url)
+		if resp != nil && resp.StatusCode != http.StatusOK {
+			if _, err := io.Copy(os.Stderr, resp.Body); err != nil {
+				log.Println(err)
+				return
+			}
+		}
+
 		if err != nil {
 			log.Println(err)
-		} else if resp.StatusCode == http.StatusNotFound {
 			return
+		} else if resp.StatusCode == http.StatusGatewayTimeout || resp.StatusCode == http.StatusBadGateway {
+			continue //treat GatewayTimeout as a retryable error
+		} else if resp.StatusCode == http.StatusNotFound {
+			return //channel does not exist don't retry
 		} else if resp.StatusCode == http.StatusConflict {
 			log.Println("got error too many connections, when trying to reconnect")
 			return
@@ -66,7 +76,9 @@ func startHTTPClientReader(url string) {
 
 		if _, err := io.Copy(os.Stdout, resp.Body); err != nil {
 			log.Println(err)
+			continue
 		}
+		return
 	}
 }
 
