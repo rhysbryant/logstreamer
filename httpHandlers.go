@@ -117,6 +117,8 @@ func logReadRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+	//ensure the http headers are sent without a delay to prevent any time to First byte timeouts
+	flusher.Flush()
 	channel.ReaderStart()
 	logChannelEvent("ChannelReaderConnected", channelName, userAddress)
 	for {
